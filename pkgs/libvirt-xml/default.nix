@@ -80,7 +80,7 @@ writeShellApplication {
     CORES=4
     THREADS=2
     DISK=""
-    DISK_SIZE="64G"
+    DISK_SIZE="64"
     ISO=""
     OS_VARIANT="win11"
     QEMU_BIN=""
@@ -96,6 +96,8 @@ writeShellApplication {
     AUDIO_UID=""
     EVDEV_DEVICES=()
     GRAB_TOGGLE="ctrl-ctrl"
+    SHMEM_SIZE=""
+    PCI_PASSTHROUGH=()
     DISPLAY_TYPE="spice"
     DRY_RUN=false
     PRINT_XML=false
@@ -121,6 +123,8 @@ writeShellApplication {
         --mac) MAC="$2"; shift 2 ;;
         --audio) AUDIO="$2"; shift 2 ;;
         --audio-uid) AUDIO_UID="$2"; shift 2 ;;
+        --shmem) SHMEM_SIZE="$2"; shift 2 ;;
+        --pci-passthrough) PCI_PASSTHROUGH+=("$2"); shift 2 ;;
         --evdev) EVDEV_DEVICES+=("$2"); shift 2 ;;
         --grab-toggle) GRAB_TOGGLE="$2"; shift 2 ;;
         --display) DISPLAY_TYPE="$2"; shift 2 ;;
@@ -221,10 +225,6 @@ writeShellApplication {
       # Emulator path
       --xml "./devices/emulator=$QEMU_BIN"
 
-      # NVMe disk with random serial
-      --disk "size=500,bus=nvme,serial=$DRIVE_SERIAL,driver.cache=none,driver.io=native,driver.discard=unmap,blockio.logical_block_size=4096,blockio.physical_block_size=4096"
-      --check "disk_size=off"
-
       # Network — e1000e with spoofed MAC
       --network "network=default,model=e1000e,mac=$MAC"
 
@@ -260,11 +260,27 @@ writeShellApplication {
       args+=('--cdrom' "$ISO")
     fi
 
-    # Custom disk path
+    # Disk
     if [ -n "$DISK" ]; then
-      args+=('--disk' "path=$DISK,size=$DISK_SIZE,bus=nvme,serial=$DRIVE_SERIAL,driver.cache=none,driver.io=native,driver.discard=unmap,blockio.logical_block_size=4096,blockio.physical_block_size=4096")
-      # Override the default disk
-      args=("''${args[@]/--disk \"size=500,/--disk \"path=$DISK,size=$DISK_SIZE,}")
+      if [ -f "$DISK" ]; then
+        args+=('--disk' "path=$DISK,bus=nvme,serial=$DRIVE_SERIAL,driver.cache=none,driver.io=native,driver.discard=unmap,blockio.logical_block_size=4096,blockio.physical_block_size=4096")
+      else
+        args+=('--disk' "path=$DISK,size=$DISK_SIZE,bus=nvme,serial=$DRIVE_SERIAL,driver.cache=none,driver.io=native,driver.discard=unmap,blockio.logical_block_size=4096,blockio.physical_block_size=4096")
+      fi
+    else
+      args+=('--disk' "size=500,bus=nvme,serial=$DRIVE_SERIAL,driver.cache=none,driver.io=native,driver.discard=unmap,blockio.logical_block_size=4096,blockio.physical_block_size=4096")
+    fi
+    args+=('--check' "disk_size=off")
+
+    # PCI passthrough
+    for pci in "''${PCI_PASSTHROUGH[@]}"; do
+      args+=('--hostdev' "pci,address=$pci")
+    done
+
+    # Looking Glass shared memory
+    if [ -n "$SHMEM_SIZE" ]; then
+      args+=('--qemu-commandline=-object' "--qemu-commandline=memory-backend-file,id=shmem0,mem-path=/dev/shm/looking-glass,size=${SHMEM_SIZE}M,share=on")
+      args+=('--qemu-commandline=-device' "--qemu-commandline=ivshmem-plain,id=shmem0,memdev=shmem0,bus=pcie.0,addr=0x10")
     fi
 
     # SMBIOS binary

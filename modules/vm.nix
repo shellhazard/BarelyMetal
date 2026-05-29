@@ -227,6 +227,7 @@ let
       --threads "${toString vmCfg.threads}" \
       --grab-toggle "${vmCfg.evdevGrabKey}" \
       --audio "${vmCfg.audioBackend}" \
+      ${lib.optionalString (vmCfg.audioUid != null) "--audio-uid \"${vmCfg.audioUid}\""} \
       ${lib.optionalString (vmCfg.networkMac != null) "--mac \"${vmCfg.networkMac}\""} \
       ${lib.optionalString vmCfg.enableHyperVPassthrough "--hyperv"} \
       ${lib.optionalString (vmCfg.isoPath != null) "--iso \"${toString vmCfg.isoPath}\""} \
@@ -235,6 +236,8 @@ let
       ${lib.concatMapStringsSep " " (t: "--acpi-table \"${t.dst}\"") stableAcpiTables} \
       ${lib.optionalString cfg.installGuestScripts "--guest-iso \"${guestScriptsIsoPath}\""} \
       ${lib.concatMapStringsSep " " (d: "--evdev \"${d}\"") vmCfg.evdevInputs} \
+      ${lib.optionalString (cfg.lookingGlass.enable) "--shmem \"${toString cfg.lookingGlass.shmSize}\""} \
+      ${lib.concatMapStringsSep " " (id: "--pci-passthrough \"${id}\"") vmCfg.pciPassthrough} \
       "$@"
   '';
 
@@ -447,9 +450,14 @@ in
         type = lib.types.enum [ "none" "pipewire" "pulseaudio" "alsa" ];
         default = "pipewire";
       };
+      audioUid = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "User ID for PipeWire audio backend runtime directory. Null = auto-detect from current user.";
+      };
       isoPath = lib.mkOption { type = lib.types.nullOr lib.types.path; default = null; };
       diskPath = lib.mkOption { type = lib.types.nullOr lib.types.str; default = null; };
-      diskSize = lib.mkOption { type = lib.types.str; default = "64G"; };
+      diskSize = lib.mkOption { type = lib.types.str; default = "64"; };
       networkMac = lib.mkOption { type = lib.types.nullOr lib.types.str; default = null; };
       enableHyperVPassthrough = lib.mkOption { type = lib.types.bool; default = false; };
       acpiTables = lib.mkOption { type = lib.types.listOf lib.types.path; default = [ ]; };
