@@ -279,7 +279,7 @@ writeShellApplication {
 
     # Looking Glass shared memory
     if [ -n "$SHMEM_SIZE" ]; then
-      args+=('--qemu-commandline=-object' "--qemu-commandline=memory-backend-file,id=shmem0,mem-path=/dev/shm/looking-glass,size=${SHMEM_SIZE}M,share=on")
+      args+=('--qemu-commandline=-object' "--qemu-commandline=memory-backend-file,id=shmem0,mem-path=/dev/shm/looking-glass,size=$SHMEM_SIZE\M,share=on")
       args+=('--qemu-commandline=-device' "--qemu-commandline=ivshmem-plain,id=shmem0,memdev=shmem0,bus=pcie.0,addr=0x10")
     fi
 
